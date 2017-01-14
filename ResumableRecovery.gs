@@ -1,7 +1,9 @@
-//THIS IS THE ONLY LINE THAT NEEDS MODIFIED BEFORE NEW RUN (GMT TIME)
+//THIS IS THE ONLY LINE THAT NEEDS MODIFIED BEFORE NEW RUN
 var flagTimeLow = '2016-12-22T22:00:00.000Z', flagTimeHigh = '2016-12-23T02:00:00.000Z';
 //
-//DON'T FORGET TO ENABLE DRIVE API SERVICE ACCESS
+//Get root, change this to start elsewhere via DriveApp.getFolderById(id)
+var curFolder = DriveApp.getRootFolder();
+//
 var logSheet = SpreadsheetApp.getActiveSpreadsheet();
 var foldersName = 'Folders', filesName = 'Files', logName = 'Log', fileCleanFlag = 'clean', fileWarnFlag = 'warning', 
     lastFolder = 'lastFolder', lastFolderPath = 'lastFolderPath';
@@ -13,8 +15,6 @@ var logPage     = logSheet.getSheetByName(logName);
 var runStart = new Date();
 var timeoutDuration = 282000;// 4.7 minutes of 6 max on 5min loop with chron job
 var properties = PropertiesService.getUserProperties();
-//Get root, change this to start elsewhere
-var curFolder = DriveApp.getRootFolder();
 var pathString = ["~.\\"];
 var quit = false;
 
@@ -81,6 +81,8 @@ function resume() {
 //Recursive folder and file search. Skips files when folderDoneFlag per folder.
 //Receives folder object, returns true when done or false when exiting.
 function processFolder(folder) {
+  var dirCheck = folderCheck(folder);
+  if (dirCheck==2) return true;
   Logger.log('Stepping into: '+folder.getName());
   foldersCount++;
   //If we have changed directory then post it to log
@@ -88,7 +90,7 @@ function processFolder(folder) {
     tmp = pathString.toString().replace(/,/g,'');
     log('cd '+tmp);
   }
-  if(folderCheck(folder)<1){ //If folder not yet processed
+  if(dirCheck<1){ //If folder not yet processed
     var files = folder.getFiles();
     while (files.hasNext()){//process files before folders
       var file = files.next();
@@ -103,7 +105,7 @@ function processFolder(folder) {
   while(childFolders.hasNext()) {
     if(quit) return false; //exiting for time
     var childFolder = childFolders.next();
-    if (folderCheck(folder)==2)//Checks for done tag, skip files if found
+    if (folderCheck(childFolder)==2)//Checks for done tag, skip files if found
       skippedFoldersCount++;
     else {//build path object
       pathString.push(childFolder.getName()+'\\');
@@ -114,6 +116,8 @@ function processFolder(folder) {
   if (verifyDone(folder)) { //verify, log and finish.
     foldersLog(folder, 2);//doneFlag
     doneFoldersCount++;
+    properties.setProperty(lastFolder, folder.getId());
+    properties.setProperty(lastFolderPath, pathString.toString().replace(/,/,''));
     return true;
   }
 }
